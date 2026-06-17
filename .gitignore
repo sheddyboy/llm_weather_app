@@ -1,0 +1,22 @@
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# Secrets — never commit real env files, but keep the template
+.env
+.env.*
+!.env.example
+
+# Node (apps/web frontend, generated later via v0)
+node_modules/
+.next/
+
+# OS
+.DS_Store
