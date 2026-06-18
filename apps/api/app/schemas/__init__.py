@@ -1,6 +1,7 @@
 """Pydantic request/response schemas for the API surface."""
 
 from app.schemas.error import ErrorDetail, ErrorResponse
+from app.schemas.media import MediaResponse, PointOfInterest, VideoItem
 from app.schemas.records import (
     DailyReadingRead,
     LocationRead,
@@ -24,7 +25,10 @@ __all__ = [
     "ForecastDay",
     "ForecastResponse",
     "LocationRead",
+    "MediaResponse",
+    "PointOfInterest",
     "RecordCreate",
     "RecordUpdate",
+    "VideoItem",
     "WeatherRecordRead",
 ]

@@ -21,10 +21,20 @@ from alembic import command
 from app.core.cache import InMemoryCache
 from app.core.config import settings
 from app.core.database import get_db
-from app.dependencies import get_geocoding_service, get_weather_provider
+from app.dependencies import (
+    get_geocoding_service,
+    get_places_service,
+    get_weather_provider,
+    get_youtube_service,
+)
 from app.main import app
 from app.repositories import WeatherRepository
-from app.services import GeocodingService, WeatherProvider
+from app.services import (
+    GeocodingService,
+    PlacesService,
+    WeatherProvider,
+    YouTubeService,
+)
 
 TEST_DATABASE_URL = settings.database_url_test
 
@@ -81,11 +91,25 @@ async def api_client(
     test session and the mocked transport (no real HTTP, no real DB writes). The
     geocoding service and weather provider share one mock client and the provider
     keeps a single in-memory cache across requests, so cache behavior is realistic.
-    """
-    created: list[tuple[httpx.AsyncClient, httpx.AsyncClient]] = []
 
-    def factory(handler) -> httpx.AsyncClient:
+    The optional ``youtube``/``places`` handlers (and their ``enable_*`` flags)
+    wire the media-enrichment services: pass a mock handler to drive a provider in
+    live mode, or set ``enable_*=False`` to exercise the flag-gated stub fallback
+    with no HTTP at all. The media services share the provider's cache, so their
+    cache behavior is realistic too.
+    """
+    clients: list[httpx.AsyncClient] = []
+
+    def factory(
+        handler,
+        *,
+        youtube=None,
+        places=None,
+        enable_youtube: bool = True,
+        enable_places: bool = True,
+    ) -> httpx.AsyncClient:
         mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        clients.append(mock_client)
         cache = InMemoryCache()
 
         app.dependency_overrides[get_db] = lambda: db_session
@@ -96,16 +120,33 @@ async def api_client(
             cache, api_key="test-key", client=mock_client
         )
 
+        if youtube is not None or not enable_youtube:
+            yt_client = None
+            if youtube is not None:
+                yt_client = httpx.AsyncClient(transport=httpx.MockTransport(youtube))
+                clients.append(yt_client)
+            app.dependency_overrides[get_youtube_service] = lambda: YouTubeService(
+                cache, api_key="test-key", enabled=enable_youtube, client=yt_client
+            )
+
+        if places is not None or not enable_places:
+            pl_client = None
+            if places is not None:
+                pl_client = httpx.AsyncClient(transport=httpx.MockTransport(places))
+                clients.append(pl_client)
+            app.dependency_overrides[get_places_service] = lambda: PlacesService(
+                cache, api_key="test-key", enabled=enable_places, client=pl_client
+            )
+
         ac = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         )
-        created.append((ac, mock_client))
+        clients.append(ac)
         return ac
 
     try:
         yield factory
     finally:
-        for ac, mock_client in created:
-            await ac.aclose()
-            await mock_client.aclose()
+        for client in clients:
+            await client.aclose()
         app.dependency_overrides.clear()

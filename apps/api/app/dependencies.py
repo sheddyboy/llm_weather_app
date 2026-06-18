@@ -13,7 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.cache import CacheBackend, get_cache
 from app.core.database import get_db
 from app.repositories import WeatherRepository
-from app.services import GeocodingService, WeatherProvider
+from app.services import (
+    GeocodingService,
+    PlacesService,
+    WeatherProvider,
+    YouTubeService,
+)
 
 
 def get_repository(session: AsyncSession = Depends(get_db)) -> WeatherRepository:
@@ -38,3 +43,17 @@ def get_weather_provider(
 ) -> WeatherProvider:
     """Cache-first OpenWeatherMap provider."""
     return WeatherProvider(cache)
+
+
+def get_youtube_service(
+    cache: CacheBackend = Depends(get_cache_backend),
+) -> YouTubeService:
+    """Cache-first YouTube enrichment service (flag-gated by ENABLE_YOUTUBE)."""
+    return YouTubeService(cache)
+
+
+def get_places_service(
+    cache: CacheBackend = Depends(get_cache_backend),
+) -> PlacesService:
+    """Cache-first Google Places enrichment service (flag-gated by ENABLE_PLACES)."""
+    return PlacesService(cache)
