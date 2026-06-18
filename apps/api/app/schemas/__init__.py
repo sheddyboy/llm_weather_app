@@ -8,11 +8,21 @@ from app.schemas.records import (
     RecordUpdate,
     WeatherRecordRead,
 )
+from app.schemas.weather import (
+    CurrentWeather,
+    CurrentWeatherResponse,
+    ForecastDay,
+    ForecastResponse,
+)
 
 __all__ = [
+    "CurrentWeather",
+    "CurrentWeatherResponse",
     "DailyReadingRead",
     "ErrorDetail",
     "ErrorResponse",
+    "ForecastDay",
+    "ForecastResponse",
     "LocationRead",
     "RecordCreate",
     "RecordUpdate",

@@ -82,7 +82,13 @@ class WeatherRepository:
         return record
 
     async def get_record(self, record_id: UUID) -> WeatherRecord | None:
-        """Read one record with its location and readings eagerly loaded."""
+        """Read one record with its location and readings eagerly loaded.
+
+        ``populate_existing`` refreshes an instance already in the session's
+        identity map, so a re-fetch after a PATCH (which clears and rebuilds the
+        readings via Core statements) reflects the new rows rather than a stale
+        collection loaded earlier in the same session.
+        """
         stmt = (
             select(WeatherRecord)
             .where(WeatherRecord.id == record_id)
@@ -90,6 +96,7 @@ class WeatherRepository:
                 selectinload(WeatherRecord.location),
                 selectinload(WeatherRecord.readings),
             )
+            .execution_options(populate_existing=True)
         )
         return await self.session.scalar(stmt)
 

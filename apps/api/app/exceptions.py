@@ -44,6 +44,19 @@ class LocationNotFoundError(AppError):
     default_message = "No matching location could be found."
 
 
+class RecordNotFoundError(AppError):
+    """No stored weather record exists for the requested id.
+
+    Intrinsic to the records CRUD surface (GET/PATCH/DELETE of a missing id):
+    it reuses the shared error envelope rather than FastAPI's default
+    ``{"detail": ...}`` shape, keeping every error response consistent.
+    """
+
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "record_not_found"
+    default_message = "No weather record could be found with the given id."
+
+
 class InvalidDateRangeError(AppError):
     """The requested date range is invalid (end before start, too large, etc.)."""
 
