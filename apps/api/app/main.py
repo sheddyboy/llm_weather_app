@@ -11,6 +11,7 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.core.logging import configure_logging, logger
+from app.exceptions import register_exception_handlers
 
 configure_logging()
 
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title=settings.meta_name, lifespan=lifespan)
+register_exception_handlers(app)
 
 
 @app.get("/health", tags=["meta"])
