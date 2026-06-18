@@ -45,13 +45,17 @@ class Settings(BaseSettings):
     google_places_api_key: str = ""
     enable_places: bool = True
 
+    # --- CORS ---
+    # Origins allowed to call the API from a browser (the Next.js frontend in dev).
+    cors_origins: list[str] = ["http://localhost:3000"]
+
     # --- Logging ---
     log_level: str = "INFO"
 
     # --- /meta endpoint ---
     meta_name: str = "Weather App"
     meta_description: str = (
-        "PM Accelerator, see https://www.linkedin.com/school/pmaccelerator/"
+        "Real-time weather forecasts and local insights for your city, powered by AI."
     )
 
 
