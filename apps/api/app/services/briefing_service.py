@@ -84,9 +84,11 @@ class BriefingService:
         if self._llm is not None:
             return self._llm
         from langchain_openai import ChatOpenAI
+        from pydantic import SecretStr
 
+        api_key = SecretStr(self._api_key) if self._api_key is not None else None
         return ChatOpenAI(
-            model=self._model, api_key=self._api_key, temperature=0
+            model=self._model, api_key=api_key, temperature=0
         ).with_structured_output(BriefingResponse)
 
 
