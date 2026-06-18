@@ -4,9 +4,13 @@ version = "0.1.0"
 description = "Weather App backend (FastAPI) for the PM Accelerator assessment"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.18.4",
+    "asyncpg>=0.31.0",
     "fastapi>=0.137.1",
+    "greenlet>=3.5.2",
     "loguru>=0.7.3",
     "pydantic-settings>=2.14.1",
+    "sqlalchemy>=2.0",
     "uvicorn[standard]>=0.49.0",
 ]
 
