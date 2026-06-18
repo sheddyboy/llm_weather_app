@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from app.core.config import settings
 from app.core.logging import configure_logging, logger
 from app.exceptions import register_exception_handlers
-from app.routers import records_router, weather_router
+from app.routers import export_router, records_router, weather_router
 
 configure_logging()
 
@@ -28,6 +28,7 @@ app = FastAPI(title=settings.meta_name, lifespan=lifespan)
 register_exception_handlers(app)
 app.include_router(records_router)
 app.include_router(weather_router)
+app.include_router(export_router)
 
 
 @app.get("/health", tags=["meta"])
