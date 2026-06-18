@@ -73,14 +73,15 @@ class BriefingService:
             ("human", _render_prompt(record)),
         ]
         try:
-            return await llm.ainvoke(messages)
+            result = await llm.ainvoke(messages)
+            return BriefingResponse.model_validate(result)
         except Exception as exc:  # noqa: BLE001 - normalize any LLM/transport error
             logger.warning("Briefing generation failed: {}", exc)
             raise ExternalAPIQuotaExceededError(
                 "The OpenAI API is unavailable or its quota has been reached."
             ) from exc
 
-    def _build_llm(self) -> Any:
+    def _build_llm(self):
         if self._llm is not None:
             return self._llm
         from langchain_openai import ChatOpenAI
