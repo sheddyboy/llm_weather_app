@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.logging import configure_logging, logger
 from app.exceptions import register_exception_handlers
 from app.routers import (
+    briefing_router,
     export_router,
     media_router,
     records_router,
@@ -35,6 +36,7 @@ app.include_router(records_router)
 app.include_router(weather_router)
 app.include_router(export_router)
 app.include_router(media_router)
+app.include_router(briefing_router)
 
 
 @app.get("/health", tags=["meta"])

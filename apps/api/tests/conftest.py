@@ -22,6 +22,7 @@ from app.core.cache import InMemoryCache
 from app.core.config import settings
 from app.core.database import get_db
 from app.dependencies import (
+    get_briefing_service,
     get_geocoding_service,
     get_places_service,
     get_weather_provider,
@@ -30,6 +31,7 @@ from app.dependencies import (
 from app.main import app
 from app.repositories import WeatherRepository
 from app.services import (
+    BriefingService,
     GeocodingService,
     PlacesService,
     WeatherProvider,
@@ -97,6 +99,10 @@ async def api_client(
     live mode, or set ``enable_*=False`` to exercise the flag-gated stub fallback
     with no HTTP at all. The media services share the provider's cache, so their
     cache behavior is realistic too.
+
+    The optional ``briefing_llm`` is a fake structured runnable injected into the
+    briefing service so the OpenAI call is never made; the service still shares the
+    same in-memory cache, so its cache-first behavior is exercised realistically.
     """
     clients: list[httpx.AsyncClient] = []
 
@@ -107,6 +113,7 @@ async def api_client(
         places=None,
         enable_youtube: bool = True,
         enable_places: bool = True,
+        briefing_llm=None,
     ) -> httpx.AsyncClient:
         mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         clients.append(mock_client)
@@ -136,6 +143,11 @@ async def api_client(
                 clients.append(pl_client)
             app.dependency_overrides[get_places_service] = lambda: PlacesService(
                 cache, api_key="test-key", enabled=enable_places, client=pl_client
+            )
+
+        if briefing_llm is not None:
+            app.dependency_overrides[get_briefing_service] = lambda: BriefingService(
+                cache, api_key="test-key", llm=briefing_llm
             )
 
         ac = httpx.AsyncClient(

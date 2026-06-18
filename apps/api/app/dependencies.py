@@ -14,6 +14,7 @@ from app.core.cache import CacheBackend, get_cache
 from app.core.database import get_db
 from app.repositories import WeatherRepository
 from app.services import (
+    BriefingService,
     GeocodingService,
     PlacesService,
     WeatherProvider,
@@ -57,3 +58,10 @@ def get_places_service(
 ) -> PlacesService:
     """Cache-first Google Places enrichment service (flag-gated by ENABLE_PLACES)."""
     return PlacesService(cache)
+
+
+def get_briefing_service(
+    cache: CacheBackend = Depends(get_cache_backend),
+) -> BriefingService:
+    """Cache-first OpenAI briefing service (keyed on the record's data hash)."""
+    return BriefingService(cache)
