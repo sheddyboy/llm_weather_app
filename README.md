@@ -1,13 +1,23 @@
 # Weather App
 
-A weather application built for the PM Accelerator AI Engineer Intern assessment (full-stack / dual-role track). This repository is a monorepo: a FastAPI backend that integrates OpenWeatherMap, YouTube, Google Places, and OpenAI, backed by Postgres; and a Next.js frontend that consumes the backend's API.
+A weather application built for the PM Accelerator AI Engineer Intern assessment (full-stack / dual-role track). This repository is a monorepo: a FastAPI backend that integrates OpenWeatherMap, YouTube, Google Places, and OpenAI, backed by Postgres; and a Next.js frontend ("Skyglass") that consumes the backend's API.
+
+## Features
+
+- **Live weather lookup** by city, ZIP/postal code, or coordinates, with a multi-day forecast.
+- **Saved records** with full CRUD: store a location and date range, then list, view, edit, and delete it.
+- **Multi-format export** of any record as JSON, XML, CSV, Markdown, or PDF.
+- **AI briefing** per record: an OpenAI-generated narrative summary of the weather.
+- **Media enrichment** per record: relevant YouTube videos and nearby Google Places points of interest.
+- **Immersive UI**: glassmorphic, weather-reactive frontend with °C/°F switching and dark mode.
 
 ## Layout
 
 ```
 weather_app/
-├── ARCHITECTURE_DESIGN_DOCUMENT.md   # source of truth: stack, schema, API, caching, errors
-├── docker-compose.yml                # full stack: web + api + postgres + redis
+├── ARCHITECTURE_DESIGN_DOCUMENT.md            # backend source of truth: stack, schema, API, caching, errors
+├── FRONTEND_ARCHITECTURE_DESIGN_DOCUMENT.md   # frontend source of truth: routes, views, data layer, UI
+├── docker-compose.yml                         # full stack: web + api + postgres + redis
 ├── apps/
 │   ├── api/                          # FastAPI backend (everything in the architecture doc)
 │   │   └── Dockerfile
@@ -117,4 +127,7 @@ uv run ruff check      # lint
 
 ## Documentation
 
-See [ARCHITECTURE_DESIGN_DOCUMENT.md](ARCHITECTURE_DESIGN_DOCUMENT.md) for the complete engineering reference (tech stack and versions, database schema, API surface, external integrations, caching strategy, error handling, testing, and deployment).
+Two engineering references cover the system in full:
+
+- [ARCHITECTURE_DESIGN_DOCUMENT.md](ARCHITECTURE_DESIGN_DOCUMENT.md) — backend: tech stack and versions, database schema, API surface, external integrations, caching strategy, error handling, testing, and deployment.
+- [FRONTEND_ARCHITECTURE_DESIGN_DOCUMENT.md](FRONTEND_ARCHITECTURE_DESIGN_DOCUMENT.md) — frontend: scope, tech stack, routing and page structure, the data/API layer, and UI conventions.
