@@ -1,9 +1,9 @@
 """Pluggable cache layer (ARCHITECTURE §7).
 
 Calling code (the service layer, from batch 7 onwards) only ever talks to the
-abstract `CacheBackend` interface, never to a concrete backend. Today the local
-backend is `InMemoryCache` (cachetools, async-safe); `RedisCache` is stubbed for
-the eventual Docker deployment and swapped in via `CACHE_BACKEND=redis`.
+abstract `CacheBackend` interface, never to a concrete backend. The local backend
+is `InMemoryCache` (cachetools, async-safe); `RedisCache` (redis.asyncio) is the
+deployment backend, swapped in via `CACHE_BACKEND=redis` (set in docker-compose).
 
 Per the architecture's TTL table, different data types use very different TTLs
 (current weather ~15 min, YouTube results up to 30 days), so `set` takes a
@@ -13,6 +13,7 @@ expiry disabled with `ttl=inf`), keeping expiry exact regardless of the mix.
 """
 
 import asyncio
+import json
 import math
 import time
 from abc import ABC, abstractmethod
@@ -20,6 +21,7 @@ from collections.abc import Callable
 from functools import lru_cache
 from typing import Any
 
+import redis.asyncio as aioredis
 from cachetools import TTLCache
 
 from app.core.config import settings
@@ -89,30 +91,43 @@ class InMemoryCache(CacheBackend):
 
 
 class RedisCache(CacheBackend):
-    """Deployment cache backed by Redis (redis.asyncio).
+    """Deployment cache backed by Redis (redis.asyncio), used under Docker.
 
-    Stubbed for now: the Redis dependency and wiring land alongside Docker in a
-    later batch (ARCHITECTURE §10). Until then, selecting `CACHE_BACKEND=redis`
-    constructs this class but any operation raises, making the gap explicit
-    rather than silently degrading.
+    Values are JSON-serialized so the same dict payloads the services cache
+    locally round-trip identically through Redis. Per-key expiry uses Redis's
+    native `EX` (whole seconds, rounded up), so the architecture's heterogeneous
+    TTLs are honored by Redis itself. The client is created lazily from the URL on
+    first use, or injected directly (tests pass a fake client); either way it is
+    decoded so values come back as `str`.
     """
 
-    def __init__(self, redis_url: str) -> None:
+    def __init__(
+        self,
+        redis_url: str,
+        default_ttl: float = DEFAULT_TTL,
+        *,
+        client: aioredis.Redis | None = None,
+    ) -> None:
         self._redis_url = redis_url
+        self._default_ttl = default_ttl
+        self._client = client
 
-    def _not_wired(self) -> NotImplementedError:
-        return NotImplementedError(
-            "RedisCache is not wired up yet; use CACHE_BACKEND=memory locally."
-        )
+    def _get_client(self) -> aioredis.Redis:
+        if self._client is None:
+            self._client = aioredis.from_url(self._redis_url, decode_responses=True)
+        return self._client
 
     async def get(self, key: str) -> Any | None:
-        raise self._not_wired()
+        raw = await self._get_client().get(key)
+        return None if raw is None else json.loads(raw)
 
     async def set(self, key: str, value: Any, ttl: float | None = None) -> None:
-        raise self._not_wired()
+        ttl = self._default_ttl if ttl is None else ttl
+        # Redis EX takes whole seconds; round up so a key never expires early.
+        await self._get_client().set(key, json.dumps(value), ex=math.ceil(ttl))
 
     async def delete(self, key: str) -> None:
-        raise self._not_wired()
+        await self._get_client().delete(key)
 
 
 @lru_cache

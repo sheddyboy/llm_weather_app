@@ -1,0 +1,9 @@
+# Keep the build context small and avoid leaking local state into the image.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.env
+tests/
+.git/

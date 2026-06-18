@@ -127,11 +127,52 @@ def test_get_cache_rejects_unknown_backend(monkeypatch) -> None:
     get_cache.cache_clear()
 
 
-async def test_redis_cache_is_stubbed() -> None:
-    cache = RedisCache("redis://localhost:6379/0")
-    with pytest.raises(NotImplementedError):
-        await cache.get("k")
-    with pytest.raises(NotImplementedError):
-        await cache.set("k", "v")
-    with pytest.raises(NotImplementedError):
-        await cache.delete("k")
+def _redis_cache(**kwargs) -> RedisCache:
+    """A `RedisCache` backed by an in-process fake Redis (no server needed)."""
+    import fakeredis
+
+    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    return RedisCache("redis://localhost:6379/0", client=client, **kwargs)
+
+
+async def test_redis_cache_set_get_roundtrips_json() -> None:
+    cache = _redis_cache()
+    payload = {"temp": 19.5, "conditions": "clear sky", "aqi": 3, "items": [1, 2]}
+
+    await cache.set("weather:london", payload)
+
+    assert await cache.get("weather:london") == payload
+
+
+async def test_redis_cache_get_missing_returns_none() -> None:
+    cache = _redis_cache()
+    assert await cache.get("absent") is None
+
+
+async def test_redis_cache_delete_removes_key() -> None:
+    cache = _redis_cache()
+    await cache.set("k", {"v": 1})
+
+    await cache.delete("k")
+
+    assert await cache.get("k") is None
+    # Deleting an absent key is a no-op.
+    await cache.delete("k")
+
+
+async def test_redis_cache_set_applies_ttl() -> None:
+    cache = _redis_cache()
+    await cache.set("k", {"v": 1}, ttl=42)
+
+    # The expiry is handed to Redis natively; the fake honors it via EX.
+    ttl = await cache._get_client().ttl("k")
+    assert 0 < ttl <= 42
+
+
+async def test_redis_cache_rounds_fractional_ttl_up() -> None:
+    cache = _redis_cache()
+    await cache.set("k", {"v": 1}, ttl=0.4)
+
+    # math.ceil(0.4) == 1, so the key persists with a 1s TTL rather than expiring
+    # immediately from a rounded-down zero.
+    assert await cache._get_client().ttl("k") == 1

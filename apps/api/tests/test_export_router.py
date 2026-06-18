@@ -121,6 +121,22 @@ async def test_export_markdown_has_title_and_table(
     assert text.count(f"| {END} |") == 1
 
 
+async def test_export_pdf_returns_pdf_document(
+    api_client: Callable[..., httpx.AsyncClient],
+) -> None:
+    client = api_client(OWMMock())
+    created = await _create_record(client)
+
+    response = await client.get(f"/records/{created['id']}/export?format=pdf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/pdf")
+    assert response.headers["content-disposition"].endswith('.pdf"')
+    # A valid PDF starts with the %PDF magic bytes and is non-trivially sized.
+    assert response.content.startswith(b"%PDF")
+    assert len(response.content) > 500
+
+
 async def test_export_unknown_format_returns_422(
     api_client: Callable[..., httpx.AsyncClient],
 ) -> None:

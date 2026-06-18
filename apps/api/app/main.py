@@ -16,6 +16,7 @@ from app.routers import (
     briefing_router,
     export_router,
     media_router,
+    meta_router,
     records_router,
     weather_router,
 )
@@ -37,6 +38,7 @@ app.include_router(weather_router)
 app.include_router(export_router)
 app.include_router(media_router)
 app.include_router(briefing_router)
+app.include_router(meta_router)
 
 
 @app.get("/health", tags=["meta"])

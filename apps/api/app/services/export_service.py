@@ -1,11 +1,12 @@
-"""Render a stored weather record to json, xml, csv, or markdown.
+"""Render a stored weather record to json, xml, csv, markdown, or pdf.
 
 The exporter operates on the API's :class:`~app.schemas.WeatherRecordRead`
 schema rather than the ORM model, so every format mirrors the same shape clients
 already see elsewhere in the API and the service stays decoupled from
 persistence. All non-JSON formats are built from ``model_dump(mode="json")`` so
 they share one consistently serialized view of the record (ISO dates, stringified
-decimals). PDF is intentionally out of scope here; it is added in batch 12.
+decimals). PDF is the one binary format, so :func:`render` returns ``str | bytes``
+and the PDF renderer hands back the document bytes.
 """
 
 import csv
@@ -13,16 +14,19 @@ import io
 from enum import StrEnum
 from xml.etree import ElementTree as ET
 
+from fpdf import FPDF
+
 from app.schemas import WeatherRecordRead
 
 
 class ExportFormat(StrEnum):
-    """Supported export formats (PDF lands in batch 12)."""
+    """Supported export formats."""
 
     JSON = "json"
     XML = "xml"
     CSV = "csv"
     MARKDOWN = "markdown"
+    PDF = "pdf"
 
 
 # Per-format (media type, download filename extension).
@@ -31,6 +35,7 @@ _FORMAT_META: dict[ExportFormat, tuple[str, str]] = {
     ExportFormat.XML: ("application/xml", "xml"),
     ExportFormat.CSV: ("text/csv", "csv"),
     ExportFormat.MARKDOWN: ("text/markdown", "md"),
+    ExportFormat.PDF: ("application/pdf", "pdf"),
 }
 
 # A flat, self-describing CSV: each daily reading carries the record/location
@@ -50,8 +55,14 @@ _CSV_COLUMNS = [
 ]
 
 
-def render(record: WeatherRecordRead, fmt: ExportFormat) -> tuple[str, str, str]:
-    """Render ``record`` in ``fmt``; return ``(content, media_type, extension)``."""
+def render(
+    record: WeatherRecordRead, fmt: ExportFormat
+) -> tuple[str | bytes, str, str]:
+    """Render ``record`` in ``fmt``; return ``(content, media_type, extension)``.
+
+    ``content`` is text for every format except PDF, which returns bytes; both are
+    accepted directly by :class:`fastapi.Response`.
+    """
     content = _RENDERERS[fmt](record)
     media_type, extension = _FORMAT_META[fmt]
     return content, media_type, extension
@@ -149,9 +160,72 @@ def _to_markdown(record: WeatherRecordRead) -> str:
     return "\n".join(lines) + "\n"
 
 
+# PDF table layout: (header, reading key, column width in mm). Widths sum to the
+# usable page width (A4 portrait minus default margins = 190mm).
+_PDF_COLUMNS = [
+    ("Date", "date", 40.0),
+    ("Min (C)", "temp_min", 30.0),
+    ("Max (C)", "temp_max", 30.0),
+    ("Conditions", "conditions", 60.0),
+    ("AQI", "aqi", 30.0),
+]
+
+
+def _to_pdf(record: WeatherRecordRead) -> bytes:
+    """A printable one-page summary: heading, record metadata, readings table.
+
+    Uses the built-in Helvetica core font (latin-1), which covers the degree sign
+    used in the temperature columns, so no font files need shipping in the image.
+    """
+    data = record.model_dump(mode="json")
+    location = data["location"]
+
+    pdf = FPDF(format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, f"Weather Record: {location['resolved_name']}", new_x="LMARGIN",
+             new_y="NEXT")
+    pdf.ln(2)
+
+    pdf.set_font("Helvetica", "", 11)
+    for label, value in (
+        ("Record ID", data["id"]),
+        ("Location query", location["query_text"]),
+        ("Coordinates", f"{location['latitude']}, {location['longitude']}"),
+        ("Date range", f"{data['start_date']} to {data['end_date']}"),
+    ):
+        pdf.cell(0, 7, f"{label}: {value}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 8, "Daily readings", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.set_font("Helvetica", "B", 10)
+    for header, _key, width in _PDF_COLUMNS:
+        pdf.cell(width, 8, header, border=1)
+    pdf.ln()
+
+    pdf.set_font("Helvetica", "", 10)
+    if not data["readings"]:
+        total_width = sum(width for _h, _k, width in _PDF_COLUMNS)
+        pdf.cell(total_width, 8, "No readings", border=1, align="C")
+        pdf.ln()
+    for reading in data["readings"]:
+        for _header, key, width in _PDF_COLUMNS:
+            value = reading[key]
+            text = "" if value is None else str(value)
+            pdf.cell(width, 8, text, border=1)
+        pdf.ln()
+
+    return bytes(pdf.output())
+
+
 _RENDERERS = {
     ExportFormat.JSON: _to_json,
     ExportFormat.XML: _to_xml,
     ExportFormat.CSV: _to_csv,
     ExportFormat.MARKDOWN: _to_markdown,
+    ExportFormat.PDF: _to_pdf,
 }
