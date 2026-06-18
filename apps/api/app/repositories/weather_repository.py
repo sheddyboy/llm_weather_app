@@ -23,6 +23,17 @@ class WeatherRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    async def get_location_by_query(self, query_text: str) -> Location | None:
+        """Return the location previously resolved for ``query_text``, if any.
+
+        Lets the geocoding service short-circuit before calling the external
+        provider, since the `locations` table is the permanent geocoding cache
+        (ARCHITECTURE §7).
+        """
+        return await self.session.scalar(
+            select(Location).where(Location.query_text == query_text)
+        )
+
     async def get_or_create_location(
         self,
         *,
@@ -38,9 +49,7 @@ class WeatherRepository:
         (ARCHITECTURE §7), so an already-resolved query is reused rather than
         re-inserted.
         """
-        existing = await self.session.scalar(
-            select(Location).where(Location.query_text == query_text)
-        )
+        existing = await self.get_location_by_query(query_text)
         if existing is not None:
             return existing
 
